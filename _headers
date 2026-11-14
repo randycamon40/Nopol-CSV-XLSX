@@ -1,0 +1,36 @@
+# ── Global security & cache ─────────────────────────────
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Cross-Origin-Opener-Policy: same-origin
+
+# ── Service Worker: JANGAN di-cache browser ────────────
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+  Content-Type: application/javascript; charset=utf-8
+
+# ── Manifest: cache pendek + MIME benar ────────────────
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+# ── HTML: no-cache agar selalu update ──────────────────
+/*.html
+  Cache-Control: no-cache, must-revalidate
+  Content-Type: text/html; charset=utf-8
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+# ── Ikon & aset statis: cache 1 tahun (immutable) ──────
+/icon-*.png
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+# ── Fonts ──────────────────────────────────────────────
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
