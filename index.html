@@ -126,7 +126,7 @@ td.p{font:700 13.5px var(--m);letter-spacing:1px;cursor:pointer}
 <div class="wrap">
   <div class="card drop" id="dropZone">
     <input type="file" id="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-    <div class="ico"><svg class="i"><use href="#up"/></svg></div>
+    <div class="ico"><svg class="i"><use href="#dl"/></svg></div>
     <h2>Impor data kendaraan</h2>
     <div class="hint" style="margin-bottom:16px">Tarik &amp; lepas file .xls / .xlsx ke sini,<br>atau pilih dari perangkat.</div>
     <button class="btn" id="pickBtn"><svg class="i"><use href="#fi"/></svg>Pilih File Excel</button>
@@ -144,6 +144,20 @@ td.p{font:700 13.5px var(--m);letter-spacing:1px;cursor:pointer}
       <div class="mt"><label>Kolom Bulan / Tahun Plat</label><select id="mapMasa"></select></div>
       <div class="mt"><label>Kolom Warna Plat</label><select id="mapWarna"></select></div>
       <div class="mt"><label>Kolom Tipe Mobil (Opsional)</label><select id="mapTipe"></select></div>
+      <div class="mt">
+        <label>Format Bulan / Tahun (Otomatis)</label>
+        <select id="formatMasa">
+          <option value="original">Sesuai aslinya (teks Excel)</option>
+          <option value="MM.YY">MM.YY (contoh: 07.27)</option>
+          <option value="MM/YY">MM/YY (contoh: 07/27)</option>
+          <option value="MM-YY">MM-YY (contoh: 07-27)</option>
+          <option value="MM.YYYY">MM.YYYY (contoh: 07.2027)</option>
+          <option value="MM/YYYY">MM/YYYY (contoh: 07/2027)</option>
+          <option value="YYYY-MM">YYYY-MM (contoh: 2027-07)</option>
+          <option value="Month YYYY">Bulan YYYY (contoh: Juli 2027)</option>
+          <option value="Month YY">Bulan YY (contoh: Juli 27)</option>
+        </select>
+      </div>
     </div></details>
   </div>
 
@@ -198,7 +212,7 @@ td.p{font:700 13.5px var(--m);letter-spacing:1px;cursor:pointer}
 var $=function(id){return document.getElementById(id);};
 var elFile=$('file'),elInfo=$('fileInfo'),elOpt=$('optCard'),elSheet=$('sheetSel'),elHead=$('headSel'),
 elPlat=$('mapPlat'),elMasa=$('mapMasa'),elWarna=$('mapWarna'),elTipe=$('mapTipe'),
-elFT=$('filterTipe'),elFW=$('filterWarna'),elSort=$('sortSel'),elRes=$('resCard'),elCount=$('count'),
+elFT=$('filterTipe'),elFW=$('filterWarna'),elSort=$('sortSel'),elRes=$('resCard'),elCount=$('count'),elFormat=$('formatMasa'),
 elSearch=$('search'),elTbody=$('tbody'),elList=$('list'),elTw=$('tw'),elToast=$('toast'),elStats=$('stats'),elDock=$('dock');
 var WB=null,AOA=[],HEADROW=-1,HEADERS=[],DATA=[],VIEW='cards',STATUS='',VIEWED=[];
 
@@ -230,40 +244,81 @@ $('theme').addEventListener('click',function(){
 });
 
 /* ===== PARSE BULAN / TAHUN ===== */
-function mk(b,y){return{b:b,y:y,txt:BULAN[b-1]+' '+y};}
+// Fungsi parseMasa lama dihapus (sudah digabung ke fungsi di bawahnya)
+
 function parseMasa(v){
-  var out={b:null,y:null,txt:''};
+  var out={b:null,y:null,raw:''};
   if(v===null||v===undefined||v==='')return out;
   if(v instanceof Date&&!isNaN(v.getTime())){
-    var d=new Date(v.getTime()+43200000); // kompensasi pergeseran zona waktu
-    return mk(d.getMonth()+1,d.getFullYear());
+    var d=new Date(v.getTime()+43200000);
+    out.b=d.getMonth()+1; out.y=d.getFullYear();
+    return out;
   }
   if(typeof v==='number'&&v>20000&&v<80000){
-    try{var dc=XLSX.SSF.parse_date_code(v);if(dc&&dc.m>=1&&dc.m<=12)return mk(dc.m,dc.y);}catch(e){}
+    try{
+      var dc=XLSX.SSF.parse_date_code(v);
+      if(dc&&dc.m>=1&&dc.m<=12){out.b=dc.m;out.y=dc.y;return out;}
+    }catch(e){}
   }
-  var s=String(v).trim().replace(/\s+/g,' ');
+  var s=String(v).trim();
+  out.raw=s;
   if(!s)return out;
-  var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  var m=s.match(/^(\d{1,2})[\/\-.,\s](\d{2,4})$/);
   if(m){
-    var a=+m[1],b=+m[2],y=+m[3];if(y<100)y+=(y<70?2000:1900);
-    var bul=a>12?b:(b>12?a:b);
-    if(bul>=1&&bul<=12)return mk(bul,y);
+    var a=+m[1], b=+m[2];
+    if(a>=1&&a<=12){ out.b=a; out.y=b<100?(b<70?2000+b:1900+b):b; return out; }
   }
-  m=s.match(/^(\d{1,2})[\/\-.](\d{4})$/);
-  if(m&&+m[1]>=1&&+m[1]<=12)return mk(+m[1],+m[2]);
-  m=s.match(/^(\d{4})[\/\-.](\d{1,2})$/);
-  if(m&&+m[2]>=1&&+m[2]<=12)return mk(+m[2],+m[1]);
-
+  m=s.match(/^(\d{4})[\/\-.,\s](\d{1,2})$/);
+  if(m){
+    var y2=+m[1], b2=+m[2];
+    if(b2>=1&&b2<=12){out.b=b2;out.y=y2;return out;}
+  }
+  m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){
+    var a3=+m[1], b3=+m[2], y3=+m[3];if(y3<100)y3+=(y3<70?2000:1900);
+    var bul=a3>12?b3:(b3>12?a3:b3);
+    if(bul>=1&&bul<=12){out.b=bul;out.y=y3;return out;}
+  }
   var low=s.toLowerCase(),ym=low.match(/(19|20)\d{2}/);
   if(ym){out.y=parseInt(ym[0],10);low=low.replace(ym[0],' ');}
   for(var i=0;i<BULAN.length;i++){if(low.indexOf(BULAN[i].toLowerCase())!==-1){out.b=i+1;break;}}
   if(!out.b){for(var k in ABBR){if(new RegExp('(^|[^a-z])'+k).test(low)){out.b=ABBR[k];break;}}}
-  if(!out.b){
-    var nums=low.match(/\d{1,2}/g)||[];
-    for(var n=0;n<nums.length;n++){var x=parseInt(nums[n],10);if(x>=1&&x<=12){out.b=x;break;}}
-  }
-  out.txt=(out.b&&out.y)?BULAN[out.b-1]+' '+out.y:out.y?String(out.y):out.b?BULAN[out.b-1]:s;
+  if(out.y&&out.y<100)out.y+=2000;
   return out;
+}
+function applyFormatMasa(b,y,raw,format){
+  if(!b||!y)return raw||'';
+  var mm=('0'+b).slice(-2), yy=String(y).slice(-2), yyyy=String(y), mName=BULAN[b-1];
+  switch(format){
+    case 'original': return raw||(mm+'.'+yy);
+    case 'MM.YY': return mm+'.'+yy;
+    case 'MM/YY': return mm+'/'+yy;
+    case 'MM-YY': return mm+'-'+yy;
+    case 'MM.YYYY': return mm+'.'+yyyy;
+    case 'MM/YYYY': return mm+'/'+yyyy;
+    case 'YYYY-MM': return yyyy+'-'+mm;
+    case 'Month YYYY': return mName+' '+yyyy;
+    case 'Month YY': return mName+' '+yy;
+    default: return raw||'';
+  }
+}
+function detectMasaFormat(){
+  var formats={'MM.YY':0,'MM/YY':0,'MM-YY':0,'MM.YYYY':0,'MM/YYYY':0,'YYYY-MM':0,'Month YYYY':0};
+  var sample=DATA.slice(0,100);
+  sample.forEach(function(d){
+    if(!d.masaRaw)return;
+    var s=d.masaRaw;
+    if(/^\d{2}\.\d{2}$/.test(s))formats['MM.YY']++;
+    else if(/^\d{2}\/\d{2}$/.test(s))formats['MM/YY']++;
+    else if(/^\d{2}\-\d{2}$/.test(s))formats['MM-YY']++;
+    else if(/^\d{2}\.\d{4}$/.test(s))formats['MM.YYYY']++;
+    else if(/^\d{2}\/\d{4}$/.test(s))formats['MM/YYYY']++;
+    else if(/^\d{4}\-\d{2}$/.test(s))formats['YYYY-MM']++;
+    else if(/^[a-zA-Z]+\s+\d{4}$/.test(s))formats['Month YYYY']++;
+  });
+  var best='original',max=0;
+  for(var f in formats){if(formats[f]>max){max=formats[f];best=f;}}
+  elFormat.value=max>0?best:'original';
 }
 
 /* ===== WARNA ===== */
@@ -351,21 +406,25 @@ function loadSheet(){
   var g=guessColumns();
   fillCol(elPlat,g.plat);fillCol(elMasa,g.masa);fillCol(elWarna,g.warna);fillCol(elTipe,g.tipe);
   elOpt.hidden=false;elRes.hidden=false;elDock.hidden=false;
-  buildData();render();
+  buildData();
+  detectMasaFormat();
+  buildData();
+  render();
 }
 function buildData(){
   var cp=+elPlat.value,cm=+elMasa.value,cw=+elWarna.value,ct=+elTipe.value;
-  var start=HEADROW>=0?HEADROW+1:0,cnt={};
+  var start=HEADROW>=0?HEADROW+1:0,cnt={},format=elFormat.value;
   DATA=[];
   for(var r=start;r<AOA.length;r++){
     var row=AOA[r]||[];
     var plat=String(cp>=0&&row[cp]!=null?row[cp]:'').trim().toUpperCase().replace(/\s+/g,' ');
     var tipe=String(ct>=0&&row[ct]!=null?row[ct]:'').trim();
-    var masa=parseMasa(cm>=0?row[cm]:''),w=normWarna(cw>=0?row[cw]:'');
-    if(!plat&&!masa.txt&&!w.t&&!tipe)continue;
+    var m=parseMasa(cm>=0?row[cm]:''),w=normWarna(cw>=0?row[cw]:'');
+    var masaTxt=applyFormatMasa(m.b,m.y,m.raw,format);
+    if(!plat&&!masaTxt&&!w.t&&!tipe)continue;
     if(plat)cnt[plat]=(cnt[plat]||0)+1;
-    DATA.push({plat:plat,tipe:tipe,masa:masa.txt,warna:w.t,hex:w.hex,bd:w.bd,
-      key:(masa.b&&masa.y)?masa.y*12+masa.b:null,st:statusOf(masa.b,masa.y),idx:DATA.length});
+    DATA.push({plat:plat,tipe:tipe,masa:masaTxt,masaRaw:m.raw,masaB:m.b,masaY:m.y,warna:w.t,hex:w.hex,bd:w.bd,
+      key:(m.b&&m.y)?m.y*12+m.b:null,st:statusOf(m.b,m.y),idx:DATA.length});
   }
   DATA.forEach(function(d){d.dup=d.plat&&cnt[d.plat]>1;});
 }
@@ -502,6 +561,7 @@ $('reset').addEventListener('click',function(){
   window.scrollTo({top:0,behavior:'smooth'});
 });
 elSheet.addEventListener('change',loadSheet);
+elFormat.addEventListener('change',function(){buildData();render();});
 elHead.addEventListener('change',function(){
   HEADROW=parseInt(elHead.value,10);
   var p=[elPlat,elMasa,elWarna,elTipe].map(function(s){return parseInt(s.value,10);});
