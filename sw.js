@@ -1,5 +1,5 @@
 /* Service Worker — Nopol csv&xlsx */
-const VERSION = 'nopol-v1.0.0';
+const VERSION = 'nopol-v1.0.1';
 const SHELL_CACHE = `nopol-shell-${VERSION}`;
 const CDN_CACHE   = `nopol-cdn-${VERSION}`;
 
