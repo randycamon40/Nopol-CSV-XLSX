@@ -4,7 +4,7 @@
   "description": "Konversi data nopol dari Excel ke CSV / XLSX dengan cepat. Deteksi otomatis kolom, filter masa berlaku, dan status plat.",
   "lang": "id",
   "dir": "ltr",
-  "start_url": "/Nopol/index.html",
+  "start_url": "/Nopol-CSV-XLSX/index.html",
   "scope": "/Nopol/",
   "display": "standalone",
   "orientation": "portrait-primary",
